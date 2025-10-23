@@ -1,0 +1,12 @@
+ I am gonna use two type aliases, ByteStr and ByteString
+ type ByteStr = [u8];
+ type ByteString = Vec<u8>
+
+ the code will use ByteStr type alias for data that tends to be used as a string but happens to be in a binary(raw bytes) form.
+  Its text-based peer is the built-in str. Unlike str, ByteStr is not guarantee to contain valid UTF-8 text.
+
+   Both str and [u8] (or its alias ByteStr) are seen in the wild as &str and &[u8] (or &ByteStr). These are both called slices.
+
+   type ByteString = Vec<u8>;
+   the alias ByteString will be the workhouse when we want to use a type that behaves like a String. It is also one that can 
+     contain binary data.
