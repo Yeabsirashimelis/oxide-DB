@@ -4,3 +4,15 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+byteorder = "1.2"     # extends rust types with extra traits to write those to disk, then reads those back into a program in a repeatable, easy-to-use way
+crc = "1.7"           # provides the checksum functionality that we want to include
+
+[lib]
+name = "liboxideDB"
+path = "src/lib.rs"
+
+# A [[bin]] section, of which there can be many, defines an executable file that's build from this crate. The double
+ # square bracket syntax is required b/c it unambiguosly describes bin as having one or more elements
+[[bin]]
+name = "oxideDB_mem"
+path = "src/oxideDB_mem.rs"
