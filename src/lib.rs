@@ -5,7 +5,7 @@
     ByteString is a useful alias.
 */
 
-use byteorder::ReadBytesExt;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
@@ -18,12 +18,17 @@ use crc::crc32;
 use serde::{Deserialize, Serialize};
 
 type ByteString = Vec<u8>;
-
 type ByteStr = [u8];
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct KeyValuePair {
+    pub key: ByteString,
+    pub value: ByteString,
+}
+
+#[derive(Debug)]
 pub struct OxideDB {
-    f: File,
+    pub f: File,
     pub index: HashMap<ByteString, u64>,
 }
 
@@ -49,7 +54,7 @@ impl OxideDB {
             // .seek is a method that moves the file cursor (the current read/write position).
             // SeekFrom::Current(0) means : move the cursor 0 vytes from its current position
             //   so this call doesnot move the cursro- it just returns the current byte position in the file
-            let position = f.seek(SeekFrom::Current(0))?;
+            let current_position = f.seek(SeekFrom::Current(0))?;
 
             // OxideDB::process_record - reads a record in the file at its current position
             let maybe_kv = OxideDB::process_record(&mut f);
@@ -59,7 +64,7 @@ impl OxideDB {
                 Err(err) => match err.kind() {
                     /*
                     File operations in Rust might return an error of type std::io::ErrorKind::UnexpectedEoF, EOF(end of file) is a
-                     conventionthat operating system provide to applications. there is no special marker or delimeter at the end of a file
+                     convention that operating system provide to applications. there is no special marker or delimeter at the end of a file
                      within the file itself.
 
                      EoF is a zero byte(0u8). when reading from a file, the OS tells the application how many bytes were successfully read from storage.
@@ -74,7 +79,7 @@ impl OxideDB {
                 },
             };
 
-            self.index.insert(kv.key, position);
+            self.index.insert(kv.key, current_position);
         }
         Ok(())
     }
@@ -114,5 +119,27 @@ impl OxideDB {
         let key = data;
 
         Ok(KeyValuePair { key, value })
+    }
+
+    pub fn seek_to_end(&mut self) -> io::Result<u64> {
+        self.f.seek(SeekFrom::End(0))
+    }
+
+    pub fn get(&mut self, key: &ByteStr) -> io::Result<Option<ByteString>> {
+        let position = match self.index.get(key) {
+            None => return Ok(None),
+            Some(position) => *position,
+        };
+
+        let kv = self.get_at(position)?;
+
+        Ok(Some(kv.value))
+    }
+
+    pub fn get_at(&mut self, position: u64) -> io::Result<KeyValuePair> {
+        let mut f = BufReader::new(&mut self.f);
+        f.seek(SeekFrom::Start(position))?;
+        let kv = OxideDB::process_record(&mut f)?;
+        Ok(kv)
     }
 }

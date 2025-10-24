@@ -50,3 +50,40 @@ a binary block with a header that describes its contents, followed by the actual
 
 It’s like saying:
 “Here’s a record with a 5-byte key and a 20-byte value — and by the way, here’s a checksum to make sure it hasn’t been corrupted.”
+
+
+
+Why Little Endian?
+When you write numbers (like u32) to a file, they are stored as bytes. The order of those bytes matters, because different systems might interpret them differently.
+Little Endian: least significant byte first
+Big Endian: most significant byte first
+For example, the number 0x12345678 (in hex) would be stored as:
+Endian	Bytes in order
+Little	78 56 34 12
+Big	12 34 56 78
+
+You choose an endian to ensure your file format is consistent across machines. LittleEndian is just a convention here—they decided that all u32 numbers in this DB file are stored in little endian order.
+2️⃣ What is the byteorder crate doing?
+Rust’s Read trait only gives you raw bytes when you read from a file. For example:
+let mut buf = [0u8; 4];
+f.read_exact(&mut buf)?;
+
+
+That just gives you 4 bytes, but Rust doesn’t know whether they represent a u32, an i32, or something else.
+byteorder adds helper methods that interpret these bytes as integers in a specific endianness:
+ReadBytesExt::read_u32::<LittleEndian>()
+→ Reads 4 bytes and converts them into a u32 in little-endian order.
+WriteBytesExt::write_u32::<LittleEndian>()
+→ Converts a u32 into 4 bytes and writes them in little-endian order.
+So even though we never wrote f.read_bytes_ext() anywhere explicitly, when we do:
+let saved_checksum = f.read_u32::<LittleEndian>()?;
+
+we are using the ReadBytesExt trait from the byteorder crate. Rust just lets us call it like it’s a method on f because the trait is in scope:
+use byteorder::ReadBytesExt;
+
+Without importing that trait, Rust won’t know about read_u32.
+
+ Summary
+Little Endian is used to make the file format consistent for numbers.
+byteorder provides the traits ReadBytesExt and WriteBytesExt that allow Read and Write types to directly read/write integers in a chosen endian.
+Even though it “looks like we never used them,” read_u32::<LittleEndian>() is exactly using ReadBytesExt.
