@@ -8,7 +8,6 @@ byteorder = "1.2"     # extends rust types with extra traits to write those to d
 crc = "1.7"           # provides the checksum functionality that we want to include
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0" # if you want to print JSON
-bincode = "1"
 serde_cbor = "0.8"
 serde_derive = "1"
 

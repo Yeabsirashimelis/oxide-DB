@@ -5,13 +5,16 @@
     ByteString is a useful alias.
 */
 
+use byteorder::ReadBytesExt;
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufReader, Seek, SeekFrom},
+    io::{self, BufReader, Read, Seek, SeekFrom},
     path::Path,
 };
 
+use byteorder::LittleEndian;
+use crc::crc32;
 use serde::{Deserialize, Serialize};
 
 type ByteString = Vec<u8>;
@@ -43,6 +46,9 @@ impl OxideDB {
 
         loop {
             // File::seek() returns the number of bytes from the start of the file. This becomes the value of the index
+            // .seek is a method that moves the file cursor (the current read/write position).
+            // SeekFrom::Current(0) means : move the cursor 0 vytes from its current position
+            //   so this call doesnot move the cursro- it just returns the current byte position in the file
             let position = f.seek(SeekFrom::Current(0))?;
 
             // OxideDB::process_record - reads a record in the file at its current position
@@ -52,7 +58,13 @@ impl OxideDB {
                 Ok(kv) => kv,
                 Err(err) => match err.kind() {
                     /*
-                    File operations in Rust might return an error of type std::io::ErrorKind::UnexpectedEoF
+                    File operations in Rust might return an error of type std::io::ErrorKind::UnexpectedEoF, EOF(end of file) is a
+                     conventionthat operating system provide to applications. there is no special marker or delimeter at the end of a file
+                     within the file itself.
+
+                     EoF is a zero byte(0u8). when reading from a file, the OS tells the application how many bytes were successfully read from storage.
+                      if no bytes were successfully read from disk, yet no error condition was detecte, then the OS and, therefore, the application can
+                       assume the EOF has been reached.
 
                     */
                     io::ErrorKind::UnexpectedEof => {
@@ -65,5 +77,42 @@ impl OxideDB {
             self.index.insert(kv.key, position);
         }
         Ok(())
+    }
+
+    /*
+       the process_record() function does the processing for this within OxideDB. it begins with reading 12 bytes that represent 3 integers:
+          - a checksum
+          - the length of the key
+          - the length of the value
+    */
+    //      f may be any type that implements Read, such as a type that reads files, but can also be &[u8]
+    fn process_record<R: Read>(f: &mut R) -> io::Result<KeyValuePair> {
+        // the byteorder crate allows on-disk integers to be read in a deterministic manner.
+        let saved_checksum = f.read_u32::<LittleEndian>()?;
+        let key_len = f.read_u32::<LittleEndian>()?;
+        let val_len = f.read_u32::<LittleEndian>()?;
+        let data_len = key_len + val_len;
+
+        let mut data = ByteString::with_capacity(data_len as usize);
+
+        {
+            // f.by_ref() is required b/c take(n) creates a new Read value. Using a reference within this short-lived block sidesteps ownership issues.
+            // This creates a “limited reader” that will stop reading after data_len bytes.
+            f.by_ref().take(data_len as u64).read_to_end(&mut data)?;
+        }
+        debug_assert_eq!(data.len(), data_len as usize);
+
+        let checksum = crc32::checksum_ieee(&data);
+        if checksum != saved_checksum {
+            panic!(
+                "data corruption encountered ({:08x} != {:08x})",
+                checksum, saved_checksum
+            );
+        }
+
+        let value = data.split_off(key_len as usize);
+        let key = data;
+
+        Ok(KeyValuePair { key, value })
     }
 }

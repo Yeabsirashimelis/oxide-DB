@@ -10,3 +10,43 @@
    type ByteString = Vec<u8>;
    the alias ByteString will be the workhouse when we want to use a type that behaves like a String. It is also one that can 
      contain binary data.
+
+     
+   Context: “Processing an individual record” (Bitcask format)
+ What is Riak?
+      Riak was a NoSQL database (like MongoDB or CouchDB) that emphasized:
+      Resilience to failure
+      Never losing data, even during crashes
+      It used a simple, append-only log-structured format
+   Bitcask is the file format used by Riak to store key-value pairs efficiently.
+
+ Bitcask Record Layout
+Every record in a Bitcask file follows a strict binary structure, made up of:
+   Fixed-width header
+   Variable-width key
+   Variable-width value
+
+Role	Variable name	Data type	Description
+      Fixed-width header	checksum	u32	Used to verify data integrity (detects corruption).
+      key_len	u32	The length of the key in bytes.
+      value_len	u32	The length of the value in bytes.
+      Variable-width key	key	[u8; key_len]	The actual key bytes. // array of bytes with size of key_len
+      Variable-width value	value	[u8; value_len]	The actual value bytes. // array of bytes with size of value_len
+   So each record on disk looks like this:
+   | checksum (4 bytes) | key_len (4 bytes) | value_len (4 bytes) | key (variable) | value (variable) |
+
+   each key-value pair is prefixed by 12 bytes. Those bytes describe its length (key_len + value_len) and its content (checksum)
+
+   Why this structure?
+It allows the database to:
+Append new records easily (no random writes)
+Verify data using the checksum
+Read variable-length data efficiently using the key_len and value_len fields
+Build in-memory indexes by scanning through these records on startup
+
+ In short
+Each Bitcask record =
+a binary block with a header that describes its contents, followed by the actual data.
+
+It’s like saying:
+“Here’s a record with a 5-byte key and a 20-byte value — and by the way, here’s a checksum to make sure it hasn’t been corrupted.”
