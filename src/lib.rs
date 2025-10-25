@@ -9,13 +9,13 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{self, BufReader, Read, Seek, SeekFrom},
+    io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write},
     path::Path,
 };
 
 use byteorder::LittleEndian;
 use crc::crc32;
-use serde::{Deserialize, Serialize};
+use serde::{de::value, Deserialize, Serialize};
 
 type ByteString = Vec<u8>;
 type ByteStr = [u8];
@@ -125,6 +125,9 @@ impl OxideDB {
         self.f.seek(SeekFrom::End(0))
     }
 
+    /*
+       USES THE IN-MEMORY INDEX (THE HASHMAP) TO JUMP DIRECTLY TO THE RIGHT POSITION
+    */
     pub fn get(&mut self, key: &ByteStr) -> io::Result<Option<ByteString>> {
         let position = match self.index.get(key) {
             None => return Ok(None),
@@ -141,5 +144,79 @@ impl OxideDB {
         f.seek(SeekFrom::Start(position))?;
         let kv = OxideDB::process_record(&mut f)?;
         Ok(kv)
+    }
+
+    /*
+
+       scans through the entire file record by record to find key.
+       if it finds a match, it returns the position in the file and the value.
+       if not found, it returns None.
+
+       it is a full scan search, used if the index isn't build yet
+        or if we want to verify the actual data on disk (not just the in-memory index)
+
+         USED WHEN BUILDING THE IN-MEMORY INDEX DOESNOT EXIST YET
+    */
+    pub fn find(&mut self, target: &ByteStr) -> io::Result<Option<(u64, ByteString)>> {
+        let mut f = BufReader::new(&mut self.f);
+
+        let mut found: Option<(u64, ByteString)> = None;
+
+        loop {
+            let position = f.seek(SeekFrom::Current(0))?;
+            let maybe_kv = OxideDB::process_record(&mut f);
+
+            let kv = match maybe_kv {
+                Ok(kv) => kv,
+                Err(err) => match err.kind() {
+                    io::ErrorKind::UnexpectedEof => {
+                        break;
+                    }
+                    _ => return Err(err),
+                },
+            };
+
+            if kv.key == target {
+                found = Some((position, kv.value));
+            }
+        }
+        Ok(found)
+    }
+
+    // Adds a new key-value pair to the file and updates the in-memory index
+    pub fn insert(&mut self, key: &ByteStr, value: &ByteStr) -> io::Result<()> {
+        let position = self.insert_but_ignore_index(key, value)?;
+
+        self.index.insert(key.to_vec(), position);
+
+        Ok(())
+    }
+
+    pub fn insert_but_ignore_index(&mut self, key: &ByteStr, value: &ByteStr) -> io::Result<u64> {
+        let mut f = BufWriter::new(&mut self.f);
+
+        let key_len = key.len();
+        let val_len = value.len();
+        let mut tmp = ByteString::with_capacity(key_len + val_len);
+
+        for byte in key {
+            tmp.push(*byte);
+        }
+
+        for byte in value {
+            tmp.push(*byte);
+        }
+
+        let checksum = crc32::checksum_ieee(&tmp);
+
+        let next_byte = SeekFrom::End(0); // move the end of the file for writing
+        let current_position = f.seek(SeekFrom::Current(0))?; // then store the current location
+        f.seek(next_byte)?;
+        f.write_u32::<LittleEndian>(checksum)?;
+        f.write_u32::<LittleEndian>(key_len as u32)?;
+        f.write_u32::<LittleEndian>(val_len as u32)?;
+        f.write_all(&tmp)?;
+
+        Ok(current_position)
     }
 }
