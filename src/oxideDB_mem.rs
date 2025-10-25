@@ -1,4 +1,4 @@
-use liboxideDB::OxideDB;
+use lib_oxide_db::OxideDB;
 use std::path::Path;
 
 /*
@@ -27,27 +27,29 @@ Usage:
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let fname = args.get(1).expect(&USAGE);
-    let action: &str = args.get(2).expect(&USAGE).as_ref();
-    let key: &str = args.get(3).expect(&USAGE).as_ref();
+    let action = args.get(2).expect(&USAGE).as_ref();
+    let key = args.get(3).expect(&USAGE);
     let maybe_value = args.get(4);
 
+
     let path = Path::new(&fname);
-    let mut store = oxideDB::open(path).expect("unable to open file"); // opens the file at path
+    let mut store = OxideDB::open(path).expect("unable to open file"); // opens the file at path
     store.load().expect("unable to load data"); //create an-in-memory index by loading the data from path
 
     match action {
-        "get" => match store.get(key).unwrap() {
+            // as_bytes() is a string-specific method that converts a text string (&str) into its raw byte representation (&[u8])
+        "get" => match store.get(key.as_bytes()).unwrap() {
             None => eprintln!("{:?} not found", key),
             Some(value) => println!("{:?}", value),
         },
-        "delete" => store.delete(key).unwrap(),
+        "delete" => store.delete(key.as_bytes()).unwrap(),
         "insert" => {
             let value: &str = maybe_value.expect(&USAGE).as_ref();
-            store.insert(key, value).unwrap()
+            store.insert(key.as_bytes(), value.as_bytes()).unwrap()
         }
         "update" => {
             let value: &str = maybe_value.expect(&USAGE).as_ref();
-            store.update(key, value).unwrap()
+            store.update(key.as_bytes(), value.as_bytes()).unwrap()
         }
         _ => eprintln!("{}", &USAGE),
     }

@@ -12,7 +12,7 @@ serde_cbor = "0.8"
 serde_derive = "1"
 
 [lib]
-name = "liboxideDB"
+name = "lib_oxide_db"
 path = "src/lib.rs"
 
 # A [[bin]] section, of which there can be many, defines an executable file that's build from this crate. The double
