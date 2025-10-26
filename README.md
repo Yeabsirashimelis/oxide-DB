@@ -1,82 +1,98 @@
-OxideDB
-OxideDB — A Rust-based, Riak-inspired key–value store with on-disk indexing.
-A lightweight single-file database mimicking Riak’s Bitcask engine, featuring append-only writes, CRC32 checksum validation, in-memory and optional persisted indexes for faster startup and efficient key lookups, designed for reliable and compact key–value storage.
+# OxideDB
 
-Features
-Key–Value Storage: Stores arbitrary byte arrays (Vec<u8>) as keys and values.
-Append-Only Writes: Data is appended to the file, preventing in-place overwrites.
-In-Memory Index (v1): oxideDB_mem builds the index on load by scanning the file.
-Persisted On-Disk Index (v2): oxideDB_disk stores the index under a special +index key for faster startup.
-CRC32 Checksums: Ensures data integrity when reading records from disk.
-Single-File Database: Compact storage with simple file-based access.
-Automatic File Creation: The database file is automatically created if it does not exist — no manual setup required.
+RUST + OXYGEN = OXIDE
 
-Project Structure
-oxide-DB/
-├── Cargo.toml
-├── src/
-│   ├── lib.rs         # Core OxideDB library
-│   ├── oxideDB_mem.rs # Binary for in-memory index (v1)
-│   └── oxideDB_disk.rs# Binary for on-disk persisted index (v2)
+A lightweight, Riak-inspired key–value store written in Rust. OxideDB supports append-only writes, CRC32 checksum validation, in-memory and persisted on-disk indexes, and automatic file creation. Designed for reliable, compact key–value storage in a single-file database.
 
+# Features
 
-lib_oxide_db: Contains all core database logic (insert, update, delete, get, index management).
-oxideDB_mem: Version 1 executable; keeps the index in memory only.
-oxideDB_disk: Version 2 executable; stores the index on disk under +index.
+- Key–value storage using arbitrary byte arrays (Vec<u8>)
+- Append-only writes for safe updates and crash recovery
+- CRC32 checksum validation for data integrity
+- In-memory index (v1) via oxideDB_mem
+- Persisted on-disk index (v2) via oxideDB_disk using the special +index key
+- Automatic database file creation if it does not exist
+- Efficient startup and lookups with optional persisted index
 
-Installation
+# Project Structure
+```
+src/
+├── lib.rs           # Core OxideDB library (insert, update, delete, get, index management)
+├── oxideDB_mem.rs   # Binary for in-memory index version (v1)
+└── oxideDB_disk.rs  # Binary for persisted on-disk index version (v2)
+```
 
-Clone the repository:
+# How it works
+1, Each record in the file contains: a CRC32 checksum, key length, value length, and the raw key-value bytes.
+2, Indexing:
+   - v1 (oxideDB_mem): Scans the file on load to build an in-memory HashMap of key → file offset.
+   - v2 (oxideDB_disk): Saves the serialized index to disk under the +index key for faster startup.
+3, Insert/Update/Delete: Always append-only; updates create new records, preserving historical data.
+
+4, Automatic file handling: The database file is automatically created if it does not exist.
+
+# Run locally
+Clone the repository and build with Cargo:
+```powershell
 git clone https://github.com/yourusername/oxide-DB.git
 cd oxide-DB
-
-Build the binaries:
 cargo build --release
+```
 
-You will find the executables in target/release/:
-oxideDB_mem → memory-only index
-oxideDB_disk → persisted on-disk index
-The database file will be automatically created if it does not exist; no manual file creation is necessary.
+Executables are located in target/release/:
+   oxideDB_mem → memory-only index (v1)
+   oxideDB_disk → persisted on-disk index (v2)
 
-Usage
+# Usage Examples
+Using oxideDB_mem (v1 — in-memory index)
+
 Insert a key-value pair:
-./oxideDB_disk data.db insert myKey myValue
+```
+./oxideDB_mem data.db insert myKey myValue
+```
+Retrieve a value:
+```
+./oxideDB_mem data.db get myKey
+```
+Update a value:
+```
+./oxideDB_mem data.db update myKey newValue
+```
+Delete a key:
+```
+./oxideDB_mem data.db delete myKey
+```
 
-Retrieve a value by key:
+Using oxideDB_disk (v2 — persisted on-disk index)
+Insert a key-value pair:
+```
+./oxideDB_disk data.db insert myKey myValue
+```
+
+Retrieve a value:
+```
 ./oxideDB_disk data.db get myKey
+```
 
 Update a value:
+```
 ./oxideDB_disk data.db update myKey newValue
+```
 
 Delete a key:
+```
 ./oxideDB_disk data.db delete myKey
+```
 
-Replace oxideDB_disk with oxideDB_mem to use the memory-only version.
+oxideDB_disk automatically updates the on-disk index for faster startup, while oxideDB_mem rebuilds the index in memory each time.
 
+# Comparison to Riak
+OxideDB is inspired by Riak’s Bitcask engine:
+   - Similarities: Key–value model, append-only writes, in-memory index for fast lookups.
+   - Differences: OxideDB is a single-file local store, not distributed. Riak is production-grade, supporting clustering, replication, and eventual consistency.
 
-How It Works
-1, File Storage: Each record consists of a CRC32 checksum, key length, value length, and the raw key-value bytes.
-2, Indexing:
-   - v1 (oxideDB_mem): Scans the file on load and builds an in-memory HashMap of key → file offset.
-   - v2 (oxideDB_disk): Stores the serialized index on disk as a special +index record for faster startup.
-3, Data Integrity: Checksums verify that stored data is not corrupted.
-4, Insert/Update/Delete: Always append-only; updates create new records, maintaining historical data.
-5, Automatic File Handling: The database file is automatically created when needed; users do not have to pre-create it.
-
-Comparison to Riak
-
-OxideDB is conceptually inspired by Riak’s Bitcask storage engine:
-Key–Value Model: Both store arbitrary keys and values.
-Append-Only Storage: Writes are append-only to simplify crash recovery.
-In-Memory Index: Provides fast lookups without scanning the entire file.
-
-Differences:
-OxideDB is a single-file, local store; Riak is distributed with replication and clustering.
-OxideDB focuses on simplicity and efficiency for local storage; Riak is production-grade with advanced features like vector clocks and eventual consistency.
-License
-
-## Author
+# Author
 
 Yeabsira Shimelis
 
-  Built with Rust 🦀
+Built with Rust 🦀
