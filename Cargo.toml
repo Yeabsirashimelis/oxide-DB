@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bincode = "1"
 byteorder = "1.2"     # extends rust types with extra traits to write those to disk, then reads those back into a program in a repeatable, easy-to-use way
 crc = "1.7"           # provides the checksum functionality that we want to include
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0" # if you want to print JSON
-serde_cbor = "0.8"
 serde_derive = "1"
 
 [lib]
@@ -20,3 +20,8 @@ path = "src/lib.rs"
 [[bin]]
 name = "oxideDB_mem"
 path = "src/oxideDB_mem.rs"
+
+
+[[bin]]
+name = "oxideDB_disk"
+path = "src/oxideDB_disk.rs"

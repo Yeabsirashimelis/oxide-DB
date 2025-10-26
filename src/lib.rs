@@ -84,6 +84,40 @@ impl OxideDB {
         Ok(())
     }
 
+    //this is for oxideDB_disk - the second version of the database in which the indexes hashmap is also saved on the database
+    pub fn load2(&mut self) -> io::Result<()> {
+        pub const INDEX_KEY: &ByteStr = b"+index";
+
+        // Try to get the stored index record
+        let maybe_index_record = self.get(INDEX_KEY)?;
+
+        let index_bytes = match maybe_index_record {
+            Some(bytes) => bytes,
+            None => {
+                // Build the index manually. so call load and return
+                self.load()?;
+                return Ok(());
+            }
+        };
+
+        // Deserialize the index bytes into a HashMap<ByteString, u64>
+        let decoded: HashMap<ByteString, u64> = match bincode::deserialize(&index_bytes) {
+            Ok(index) => index,
+            Err(e) => {
+                eprintln!("Failed to deserialize index: {:?}", e);
+                return Err(io::Error::new(io::ErrorKind::InvalidData, e));
+            }
+        };
+
+        //Replace current in-memory index
+        self.index = decoded;
+
+        //ensure we don't accidentally store +index inside itself
+        self.index.remove(INDEX_KEY);
+
+        Ok(())
+    }
+
     /*
        the process_record() function does the processing for this within OxideDB. it begins with reading 12 bytes that represent 3 integers:
           - a checksum
