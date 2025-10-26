@@ -41,8 +41,6 @@ fn main() {
     let path = std::path::Path::new(&fname);
     let mut db = OxideDB::open(path).expect("unable to open file");
 
-    //this is for the first version of the databasee.
-    // db.load().expect("unable to load data");
     db.load2().expect("unable to load data");
 
     match action {
