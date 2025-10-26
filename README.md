@@ -31,6 +31,14 @@ src/
 
 4, Automatic file handling: The database file is automatically created if it does not exist.
 
+# For what you can use the database
+```
+  Small local apps (storing preferences or cache)
+  Command-line tools that need persistence
+  IoT devices where a lightweight store is ideal
+  Custom game or simulation state storage
+```
+
 # Run locally
 Clone the repository and build with Cargo:
 ```powershell
