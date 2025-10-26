@@ -31,16 +31,15 @@ fn main() {
     let key = args.get(3).expect(&USAGE);
     let maybe_value = args.get(4);
 
-
     let path = Path::new(&fname);
     let mut store = OxideDB::open(path).expect("unable to open file"); // opens the file at path
     store.load().expect("unable to load data"); //create an-in-memory index by loading the data from path
 
     match action {
-            // as_bytes() is a string-specific method that converts a text string (&str) into its raw byte representation (&[u8])
+        // as_bytes() is a string-specific method that converts a text string (&str) into its raw byte representation (&[u8])
         "get" => match store.get(key.as_bytes()).unwrap() {
             None => eprintln!("{:?} not found", key),
-            Some(value) => println!("{:?}", value),
+            Some(value) => println!("{:?}", String::from_utf8(value)),
         },
         "delete" => store.delete(key.as_bytes()).unwrap(),
         "insert" => {
